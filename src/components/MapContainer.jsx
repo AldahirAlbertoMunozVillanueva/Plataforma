@@ -46,8 +46,10 @@ export const MapContainer = () => {
   }, []);
 
   return (
-    <div className="w-full">
-      <div ref={mapElement} className="w-full h-[400px] md:h-[600px] lg:h-[800px]"></div>
+    <div className="flex justify-end w-full"> {/* Cambio aquí */}
+      <div className="w-[640px]"> {/* Contenedor del mapa */}
+        <div ref={mapElement} className="w-full h-[400px]"></div>
+      </div>
     </div>
   );
 };
