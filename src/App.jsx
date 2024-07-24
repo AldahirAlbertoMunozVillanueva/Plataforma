@@ -6,6 +6,7 @@ import { Cartelera } from './components/Cartelera';
 import { Personal } from './components/Personal';
 
 
+
 function App() {
   return (
   <main className="px-4 pt-6">
@@ -17,7 +18,6 @@ function App() {
           <Route path="/cartelera" element={<Cartelera />} />
           <Route path="/personal" element={<Personal />} />
         </Routes>
-      
     </Router>
   </main>
   );
