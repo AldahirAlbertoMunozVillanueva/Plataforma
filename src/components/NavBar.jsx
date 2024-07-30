@@ -20,7 +20,7 @@ export const NavBar = () => {
         <li className='mb-8 sm:mb-0'><Link className='hover:text-SoftRed' to="/">Inicio</Link></li>
         <li className='mb-8 sm:mb-0'><Link className='hover:text-SoftRed' to="/debp">DEBP</Link></li>
         <li className='mb-8 sm:mb-0'><Link className='hover:text-SoftRed' to="/cartelera">Cartelera</Link></li>
-        <li className='mb-8 sm:mb-0'><Link className='hover:text-SoftRed' to="/Personal Bibliotecario">Personal Bibliotecario</Link></li>
+        <li className='mb-8 sm:mb-0'><Link className='hover:text-SoftRed' to="/personal">Personal Bibliotecario</Link></li>
       </ul>
       <img className={`${menuClicked ? '' : 'hidden'} w-10 h-4 cursor-pointer sm:hidden`} src={burgerMenu} onClick={handleClick} alt="Menú hamburguesa" />
     </>
