@@ -1,32 +1,35 @@
+import React from 'react';
 
-export const ArticleDEBP = () => {
+export const ArticleDEBP = ({ selectedLocation }) => {
+  const renderContent = () => {
+    switch (selectedLocation) {
+      case 1:
+        return (
+          <div>
+            <h2 className='text-[40px] leading-none font-bold sm:text-[58px]'>Biblioteca 1</h2>
+            <p>debe de mostrar los datos de la biblioteca 1</p>
+          </div>
+        );
+      case 2:
+        return (
+          <div>
+            <h2 className='text-[40px] leading-none font-bold sm:text-[58px]'>Visión</h2>
+            <p>debe de mostrar los datos de visión</p>
+          </div>
+        );
+      default:
+        return (
+          <div>
+            <h2 className='text-[40px] leading-none font-bold sm:text-[58px]'>Visitanos en redes sociales</h2>
+            <p>debe de mostrar los datos de cómo visitar en redes sociales</p>
+          </div>
+        );
+    }
+  };
+
   return (
     <section>
-        
-        <div className='sm:flex'>
-          <div className='flex-1 py-6'>
-            <h2 className='text-[40px] leading-none font-bold sm:text-[58px]'>Biblioteca 1 </h2>
-          </div>
-          <div className='flex-1  pt-9 px-4'>
-            <p className='mb-10 text-[13px] sm:text-[15px] '>debe de mostrar los datos de la biblioteca 1</p>
-          </div>
-        </div>
-        <div className='sm:flex'>
-          <div className='flex-1 py-6'>
-            <h2 className='text-[40px] leading-none font-bold sm:text-[58px]'>vision</h2>
-          </div>
-          <div className='flex-1  pt-9 px-4'>
-            <p className='mb-10 text-[13px] sm:text-[15px] '>debe de mostrar los datos de vision</p>
-          </div>
-        </div>
-        <div className='sm:flex'>
-          <div className='flex-1 py-6'>
-            <h2 className='text-[40px] leading-none font-bold sm:text-[58px]'>Visitanos en redes sociales</h2>
-          </div>
-          <div className='flex-1  pt-9 px-4'>
-            <p className='mb-10 text-[13px] sm:text-[15px] '>debe de mostrar los datos de como visitar en redes sociales </p>
-          </div>
-        </div>
+      {renderContent()}
     </section>
-  )
-}
+  );
+};

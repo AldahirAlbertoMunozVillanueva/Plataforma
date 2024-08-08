@@ -1,17 +1,22 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import 'ol/ol.css';
 import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
 import { fromLonLat } from 'ol/proj';
 import { defaults as defaultControls, ScaleLine } from 'ol/control';
+import { Indicadores } from './Indicadores';
 
-export const MapContainer = () => {
+export const MapContainer = ({ onSelectLocation }) => {
   const mapElement = useRef();
   const mapRef = useRef(null);
+  const [locations, setLocations] = useState([
+    { id: 1, position: [19.47, -90.32] },
+    { id: 2, position: [19.50, -90.35] },
+  ]);
 
   useEffect(() => {
-    if (mapRef.current) return; // Si el mapa ya existe, no lo reinicialices
+    if (mapRef.current) return;
 
     mapRef.current = new Map({
       target: mapElement.current,
@@ -46,9 +51,10 @@ export const MapContainer = () => {
   }, []);
 
   return (
-    <div className="flex justify-end w-full"> {/* Cambio aquí */}
-      <div className="w-[640px]"> {/* Contenedor del mapa */}
-        <div ref={mapElement} className="w-full h-[400px]"></div>
+    <div className="flex w-full">
+      <Indicadores locations={locations} onClick={onSelectLocation} />
+      <div className="flex-1">
+        <div ref={mapElement} className="w-full h-[400px] relative"></div>
       </div>
     </div>
   );
