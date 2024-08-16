@@ -7,7 +7,7 @@ export const MainArticle = () => {
         <picture>
         <source media='(max-width: 640px)' srcSet={imageMobile} />
         <source media='(min-width: 641px)' srcSet={imageDesktop} />
-            <img src={imageMobile} alt="image" />
+            <img src={imageMobile} alt="image" className="w-full object-cover" />
         </picture>
         <div className='sm:flex'>
           <div className='flex-1 py-6'>

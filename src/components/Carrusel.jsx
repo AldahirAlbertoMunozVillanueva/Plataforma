@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { data } from "../assets/data"; // Asegúrate de que la ruta es correcta
+import { data } from "../assets/data"; 
 
-export const Galeria = () => {
+export const Carrusel = () => {
   const listRef = useRef();
   const [currentIndex, setCurrentIndex] = useState(0);
   const imageData = data;
