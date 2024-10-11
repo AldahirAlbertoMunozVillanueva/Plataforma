@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-
 import burgerMenu from '../assets/icon-menu.svg';
 import closeBtn from '../assets/icon-menu-close.svg';
 
@@ -21,6 +20,8 @@ export const NavBar = () => {
         <li className='mb-8 sm:mb-0'><Link className='hover:text-SoftRed' to="/debp">DEBP</Link></li>
         <li className='mb-8 sm:mb-0'><Link className='hover:text-SoftRed' to="/cartelera">Cartelera</Link></li>
         <li className='mb-8 sm:mb-0'><Link className='hover:text-SoftRed' to="/personal">Personal Bibliotecario</Link></li>
+        <li className='mb-8 sm:mb-0'><Link className='hover:text-SoftRed' to="/login">Login</Link></li> 
+        <li className='mb-8 sm:mb-0'><Link className='hover:text-SoftRed' to="/register">Register</Link></li> 
       </ul>
       <img className={`${menuClicked ? '' : 'hidden'} w-10 h-4 cursor-pointer sm:hidden`} src={burgerMenu} onClick={handleClick} alt="Menú hamburguesa" />
     </>
