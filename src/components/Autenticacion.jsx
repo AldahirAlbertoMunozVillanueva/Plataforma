@@ -1,9 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Login from './Login';
 import Register from './Register';
+import  supabase  from './supabaseClient';
 
-function App() {
+function Autenticacion() {
   const [authState, setAuthState] = useState('login'); // 'login' or 'register'
+
+  useEffect(() => {
+    supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setAuthState('home');
+      } else {
+        setAuthState('login');
+      }
+    });
+  }, []);
 
   return (
     <div>
@@ -13,4 +24,4 @@ function App() {
   );
 }
 
-export default App;
+export default Autenticacion;
