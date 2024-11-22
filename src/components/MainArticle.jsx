@@ -1,45 +1,85 @@
-import imageMobile from '../assets/mobile.jpg';
-import imageDesktop from '../assets/desktop.jpg'; 
+import { useState } from 'react';
+import { Edicion } from './Edicion';
+import supabase from './supabaseClient';
 
 export const MainArticle = () => {
+  const [imageDesktop, setImageDesktop] = useState('<p>Escribe aquí o sube una imagen...</p>');
+  const [contenedor1, setContenedor1] = useState("Escribe texto aquí");
+  const [contenedor2, setContenedor2] = useState("Escribe texto aquí");
+  const [contenedor3, setContenedor3] = useState("Escribe texto aquí");
+  const [contenedor4, setContenedor4] = useState("Escribe texto aquí");
+  const [contenedor5, setContenedor5] = useState("Escribe texto aquí");
+  const [contenedor6, setContenedor6] = useState("Escribe texto aquí");
+
+  const handleSave = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('inicio') // Nombre de la tabla en Supabase
+        .upsert([
+          {
+            id: 1, // Cambia este valor según corresponda
+            imageDesktop,
+            contenedor1,
+            contenedor2,
+            contenedor3,
+            contenedor4,
+            contenedor5,
+            contenedor6,
+          },
+        ]);
+      
+      if (error) {
+        console.error("Error al guardar los datos:", error);
+      } else {
+        console.log("Datos guardados exitosamente:", data);
+      }
+    } catch (err) {
+      console.error("Error al intentar guardar:", err);
+    }
+  };
+
   return (
     <section>
-        <picture>
-        <source media='(max-width: 640px)' srcSet={imageMobile} />
-        <source media='(min-width: 641px)' srcSet={imageDesktop} />
-            <img src={imageMobile} alt="image" className="w-full object-cover" />
-        </picture>
-        <div className='sm:flex'>
-          <div className='flex-1 py-6'>
-            <h2 className='text-[40px] leading-none font-bold sm:text-[58px]'>Mision</h2>
-          </div>
-          <div className='flex-1  pt-9 px-4'>
-            <p className='mb-10 text-[13px] sm:text-[15px] '>Nuestra misión es proporcionar acceso libre y 
-              equitativo a la información, fomentar el amor por la lectura y apoyar el aprendizaje continuo 
-              en nuestra comunidad a través de una amplia gama de recursos y servicios.</p>
-          </div>
+      <picture>
+        <div className="w-full mt-4">
+          <h3 className="text-xl font-semibold mb-2">Imagen para dispositivos de escritorio</h3>
+          <Edicion content={imageDesktop} setContent={setImageDesktop} />
         </div>
-        <div className='sm:flex'>
-          <div className='flex-1 py-6'>
-            <h2 className='text-[40px] leading-none font-bold sm:text-[58px]'>vision</h2>
-          </div>
-          <div className='flex-1  pt-9 px-4'>
-            <p className='mb-10 text-[13px] sm:text-[15px] '>Ser un centro de referencia cultural y educativo, 
-              reconocido por la excelencia en nuestros servicios, la innovación en la gestión del conocimiento 
-              y el impacto positivo en la comunidad.</p>
-          </div>
+      </picture>
+
+      <div className="sm:flex my-6">
+        <div className="flex-1 py-6">
+          <Edicion content={contenedor4} setContent={setContenedor4} />
         </div>
-        <div className='sm:flex'>
-          <div className='flex-1 py-6'>
-            <h2 className='text-[40px] leading-none font-bold sm:text-[58px]'>Servicios Ofrecidos</h2>
-          </div>
-          <div className='flex-1  pt-9 px-4'>
-            <p className='mb-10 text-[13px] sm:text-[15px] '>Las bibliotecas ofrecen diversos servicios como Préstamo de Libros: 
-              Información básica sobre cómo los usuarios pueden tomar prestados libros.
-              Acceso a Computadoras: Detalles sobre la disponibilidad de computadoras y conexión a internet.
-              Actividades Educativas: Información sobre talleres, charlas y programas educativos. </p>
-          </div>
+        <div className="flex-1 pt-6 px-4">
+          <Edicion content={contenedor1} setContent={setContenedor1} />
         </div>
+      </div>
+
+      <div className="sm:flex my-6">
+        <div className="flex-1 py-6">
+          <Edicion content={contenedor5} setContent={setContenedor5} />
+        </div>
+        <div className="flex-1 pt-6 px-4">
+          <Edicion content={contenedor2} setContent={setContenedor2} />
+        </div>
+      </div>
+
+      <div className="sm:flex my-6">
+        <div className="flex-1 py-6">
+          <Edicion content={contenedor6} setContent={setContenedor6} />
+        </div>
+        <div className="flex-1 pt-6 px-4">
+          <Edicion content={contenedor3} setContent={setContenedor3} />
+        </div>
+      </div>
+      
+      <button 
+        onClick={handleSave} 
+        className="bg-blue-500 text-white px-4 py-2 rounded mb-4"
+      >
+        Guardar
+      </button>
     </section>
-  )
-}
+  );
+};
