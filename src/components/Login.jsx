@@ -1,168 +1,190 @@
-import React, { useState } from 'react';
-import supabase from './supabaseClient';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import supabase from "./client";
 
 const Login = () => {
-  const [isRegister, setIsRegister] = useState(false); // Alternar entre habilitar/deshabilitar formularios
+  const [isRegister, setIsRegister] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const navigate = useNavigate();
 
-  // Estados de Login
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-
-  // Estados de Registro
-  const [registerName, setRegisterName] = useState('');
-  const [registerEmail, setRegisterEmail] = useState('');
-  const [registerPassword, setRegisterPassword] = useState('');
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+  const signInWithEmail = async () => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
-        password: loginPassword,
+        email,
+        password,
       });
+
       if (error) throw error;
-      console.log('User logged in:', data);
+
+      console.log("Inicio de sesión exitoso:", data);
+
+      const { user } = data;
+      const role = user.user_metadata?.role || "user";
+
+      if (role === "admin") {
+        navigate("/adminpanel");
+      } else {
+        navigate("/userpanel");
+      }
     } catch (error) {
-      console.error('Login error:', error.message);
-      setError(error.message);
-    } finally {
-      setLoading(false);
+      console.error("Error al iniciar sesión:", error.message);
+      alert("Error al iniciar sesión. Verifique sus credenciales.");
     }
   };
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+  const signUpWithEmail = async () => {
     try {
-      const { error } = await supabase.auth.signUp({
-        email: registerEmail,
-        password: registerPassword,
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
         options: {
-          data: { name: registerName },
+          data: { display_name: name, role: "user" },
         },
       });
+
       if (error) throw error;
-      alert('¡Registro exitoso! Revisa tu correo electrónico para confirmar tu cuenta.');
+
+      console.log("Registro exitoso:", data);
+
+      // Enviar correo de confirmación
+      await sendConfirmationEmail(email, name);
+
+      alert(
+        "¡Registro exitoso! Revisa tu correo electrónico para confirmar tu cuenta."
+      );
     } catch (error) {
-      console.error('Error de registro:', error.message);
-      setError(error.message);
-    } finally {
-      setLoading(false);
+      console.error("Error de registro:", error.message);
+      alert("Error al registrarse. Por favor, inténtelo de nuevo.");
     }
+  };
+
+  const sendConfirmationEmail = async (email, username) => {
+    try {
+      const response = await fetch("http://localhost:3000/send-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          username,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Error al enviar el correo de confirmación");
+      }
+
+      console.log("Correo de confirmación enviado");
+    } catch (error) {
+      console.error("Error al enviar el correo de confirmación:", error.message);
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    if (isRegister) {
+      signUpWithEmail();
+    } else {
+      signInWithEmail();
+    }
+
+    setLoading(false);
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-200">
-      <div className="flex bg-white rounded-lg shadow-lg w-3/4 overflow-hidden">
-        {/* Seccion de login */}
-        <div className="w-1/2 p-8">
-          <h2 className="text-2xl font-semibold mb-6">Iniciar Sesión</h2>
-          <form onSubmit={handleLogin} className="space-y-4">
+    <div className="flex items-center justify-center h-screen bg-gray-100">
+      <div className="w-full max-w-md p-8 bg-white rounded shadow-md">
+        <h2 className="mb-6 text-2xl font-bold text-center text-gray-800">
+          {isRegister ? "Registrarse" : "Iniciar Sesión"}
+        </h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {isRegister && (
             <div>
-              <label>Correo:</label>
-              <input
-                type="email"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                required
-                className="w-full p-3 border border-gray-300 rounded"
-                disabled={isRegister} // Deshabilita la entrada de correo si está en modo de registro
-              />
-            </div>
-            <div>
-              <label>Contraseña:</label>
-              <input
-                type="password"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                required
-                className="w-full p-3 border border-gray-300 rounded"
-                disabled={isRegister} // Deshabilita la entrada de contraseña si está en modo de registro
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading || isRegister} // Deshabilitar el botón de inicio de sesión si está en modo de registro
-              className="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600"
-            >
-              {loading ? 'Ingresando...' : 'Ingresar'}
-            </button>
-            <p className="text-sm mt-4 text-gray-600">
-              ¿No tienes una cuenta?{' '}
-              <button
-                type="button"
-                onClick={() => setIsRegister(true)}
-                className="text-blue-500 hover:underline"
+              <label
+                htmlFor="name"
+                className="block text-sm font-medium text-gray-700"
               >
-                Regístrate
-              </button>
-            </p>
-            {error && <p className="text-red-500">{error}</p>}
-          </form>
-        </div>
-
-        {/* Sección de registro (siempre visible, deshabilitado por defecto) */}
-        <div className="w-1/2 p-8 bg-gray-100">
-          <h2 className="text-2xl font-semibold mb-6">Registrarse</h2>
-          <form onSubmit={handleRegister} className="space-y-4">
-            <div>
-              <label>Nombre:</label>
+                Nombre
+              </label>
               <input
+                id="name"
                 type="text"
-                value={registerName}
-                onChange={(e) => setRegisterName(e.target.value)}
+                placeholder="Tu nombre"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring focus:ring-indigo-200"
                 required
-                className="w-full p-3 border border-gray-300 rounded"
-                disabled={!isRegister} // Deshabilitar la entrada si no está en modo de registro
               />
             </div>
-            <div>
-              <label>Correo:</label>
-              <input
-                type="email"
-                value={registerEmail}
-                onChange={(e) => setRegisterEmail(e.target.value)}
-                required
-                className="w-full p-3 border border-gray-300 rounded"
-                disabled={!isRegister} //Deshabilitar la entrada si no está en modo de registro
-              />
-            </div>
-            <div>
-              <label>Contraseña:</label>
-              <input
-                type="password"
-                value={registerPassword}
-                onChange={(e) => setRegisterPassword(e.target.value)}
-                required
-                className="w-full p-3 border border-gray-300 rounded"
-                disabled={!isRegister} // Deshabilitar la entrada si no está en modo de registro
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading || !isRegister} // Deshabilitar botón si no está en modo de registro
-              className="w-full bg-green-500 text-white py-3 rounded-lg hover:bg-green-600"
+          )}
+
+          <div>
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700"
             >
-              {loading ? 'Registrando...' : 'Registrar'}
-            </button>
-            <p className="text-sm mt-4 text-gray-600">
-              ¿Ya tienes una cuenta?{' '}
-              <button
-                type="button"
-                onClick={() => setIsRegister(false)}
-                className="text-blue-500 hover:underline"
-              >
-                Inicia sesión
-              </button>
-            </p>
-            {error && <p className="text-red-500">{error}</p>}
-          </form>
-        </div>
+              Correo Electrónico
+            </label>
+            <input
+              id="email"
+              type="email"
+              placeholder="example@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring focus:ring-indigo-200"
+              required
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Contraseña
+            </label>
+            <input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring focus:ring-indigo-200"
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="w-full px-4 py-2 text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring focus:ring-indigo-200"
+            disabled={loading}
+          >
+            {loading
+              ? "Cargando..."
+              : isRegister
+              ? "Registrarse"
+              : "Iniciar Sesión"}
+          </button>
+          {error && <p className="text-red-500">{error}</p>}
+        </form>
+        <p className="text-sm mt-4 text-gray-600 text-center">
+          {isRegister ? "¿Ya tienes una cuenta?" : "¿No tienes una cuenta?"}{" "}
+          <button
+            type="button"
+            onClick={() => setIsRegister(!isRegister)}
+            className="text-blue-500 hover:underline"
+          >
+            {isRegister ? "Inicia sesión" : "Regístrate"}
+          </button>
+        </p>
       </div>
     </div>
   );

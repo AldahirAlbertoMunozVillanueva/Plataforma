@@ -1,51 +1,51 @@
 import { useEffect, useState } from 'react';
 import AdminPanel from './AdminPanel';
 import UserUpdates from './UserUpdates';
-import supabase from './supabaseClient'; // Asegúrate de tener tu cliente de Supabase configurado
+import supabase from './client';
 
 const Dashboard = () => {
-  const [userRole, setUserRole] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState(null); // Almacena el rol del usuario
+  const [user, setUser] = useState(null); // Almacena los datos del usuario
+  const [loading, setLoading] = useState(true); // Controla el estado de carga
 
   useEffect(() => {
-    const fetchUserRole = async () => {
+    const fetchUserDetails = async () => {
       setLoading(true);
       try {
-        const { data: session } = await supabase.auth.getSession();
-
-        if (session) {
-          const { data: userData, error } = await supabase
-            .from('users') // Tu tabla de usuarios
-            .select('role') // Asegúrate de que esta columna exista
-            .eq('id', session.user.id)
-            .single();
-
-          if (error) throw error;
-
-          setUserRole(userData.role);
-        } else {
-          setUserRole(null);
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session?.user) {
+          throw new Error('No se encontró una sesión activa.');
         }
+
+        const userData = session.user;
+        const role = userData.user_metadata?.role || null; // Rol desde los metadatos
+        setUser(userData); // Almacena los datos del usuario
+        setUserRole(role); // Establece el rol
       } catch (error) {
-        console.error('Error fetching user role:', error.message);
+        console.error('Error fetching user details:', error.message);
+        setUser(null);
         setUserRole(null);
       } finally {
-        setLoading(false);
+        setLoading(false); // Detiene el estado de carga
       }
     };
 
-    fetchUserRole();
+    fetchUserDetails();
   }, []);
 
   if (loading) {
     return <p>Cargando...</p>;
   }
 
+  if (!user) {
+    return <p>No has iniciado sesión. Por favor, inicia sesión para acceder al Dashboard.</p>;
+  }
+
   return (
     <div>
       {userRole === 'admin' && <AdminPanel />}
       {userRole === 'user' && <UserUpdates />}
-      {!userRole && <p>No tienes acceso al panel.</p>}
+      {!userRole && <p>No tienes acceso al panel. Contacta al administrador.</p>}
     </div>
   );
 };

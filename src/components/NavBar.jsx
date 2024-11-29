@@ -1,14 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import burgerMenu from '../assets/icon-menu.svg';
 import closeBtn from '../assets/icon-menu-close.svg';
+import supabase from './client';
 
 export const NavBar = () => {
   const [menuClicked, setMenuClicked] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const handleClick = () => {
     setMenuClicked(prevState => !prevState);
   };
+
+  // Verifica si hay un usuario autenticado
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsLoggedIn(!!user); // Actualiza el estado según si hay un usuario autenticado
+    };
+
+    checkAuth();
+  }, []);
 
   return (
     <>
@@ -31,11 +43,14 @@ export const NavBar = () => {
           <Link className="hover:text-SoftRed" to="/personal">Personal Bibliotecario</Link>
         </li>
         <li className="mb-8 sm:mb-0">
-          <Link className="hover:text-SoftRed" to="/login">Inicio de secion y registro</Link>
+          <Link className="hover:text-SoftRed" to="/login">Inicio de sesión y registro</Link>
         </li>
-        <li className="mb-8 sm:mb-0">
-          <Link className="hover:text-SoftRed" to="/dashboard">Dashboard</Link>
-        </li>
+        {/* Muestra el enlace al Dashboard solo si el usuario ha iniciado sesión */}
+        {isLoggedIn && (
+          <li className="mb-8 sm:mb-0">
+            <Link className="hover:text-SoftRed" to="/dashboard">Dashboard</Link>
+          </li>
+        )}
       </ul>
       <img
         className={`${menuClicked ? '' : 'hidden'} w-10 h-4 cursor-pointer sm:hidden`}

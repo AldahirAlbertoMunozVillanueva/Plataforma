@@ -8,6 +8,7 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import AdminPanel from './components/AdminPanel';
 import UserUpdates from './components/UserUpdates';
+import '@fortawesome/fontawesome-free/css/all.min.css';
 
 function App() {
   return (
@@ -23,6 +24,8 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/adminpanel" element={<AdminPanel />} />
           <Route path="/userupdates" element={<UserUpdates />} />
+
+
         </Routes>
       </Router>
     </main>
