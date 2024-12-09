@@ -16,30 +16,12 @@ const Login = () => {
   const signInWithEmail = async () => {
     try {
       setLoading(true);
-      setError("");
-
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) {
-        // Handle specific error types
-        switch (error.message) {
-          case "Email not confirmed":
-            setError("Por favor, confirma tu correo electrónico. Revisa tu bandeja de entrada.");
-            // Optionally, resend confirmation email
-            await resendConfirmationEmail(email);
-            break;
-          case "Invalid login credentials":
-            setError("Credenciales inválidas. Verifica tu correo y contraseña.");
-            break;
-          default:
-            setError("Error al iniciar sesión. Intenta nuevamente.");
-            console.error("Login error:", error.message);
-        }
-        return;
-      }
+      if (error) throw error;
 
       console.log("Inicio de sesión exitoso:", data);
 
@@ -61,39 +43,17 @@ const Login = () => {
     }
   };
 
-  // New function to resend confirmation email
-  const resendConfirmationEmail = async (email) => {
-    try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: email
-      });
-
-      if (error) {
-        console.error("Error resending confirmation email:", error);
-        // Optionally, show an additional error message
-        return;
-      }
-
-      // Optional: Show a success message to the user
-      alert("Se ha enviado un nuevo correo de confirmación. Revisa tu bandeja de entrada.");
-    } catch (err) {
-      console.error("Unexpected error resending email:", err);
-    }
-  };
-
   const signUpWithEmail = async () => {
     try {
       setLoading(true);
-      setError("");
       
-      // Previous validations
+      // Validaciones previas
       if (!email || !password || !name) {
         setError("Complete todos los campos");
         return;
       }
 
-      // User registration in Supabase Auth
+      // Registro de usuario en Supabase Auth
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -102,12 +62,11 @@ const Login = () => {
             display_name: name, 
             role: "user" 
           },
-          emailRedirectTo: 'http://localhost:3000/dashboard' // Optional: redirect after email confirmation
         },
       });
 
       if (error) {
-        // Handle specific errors
+        // Manejar errores específicos
         if (error.message.includes("rate limit")) {
           setError("Demasiados intentos. Espere un momento.");
         } else {
@@ -116,17 +75,18 @@ const Login = () => {
         throw error;
       }
 
-      // Check if user exists before insertion
+      // Verificar si el usuario existe antes de insertar
       if (!data.user) {
         setError("No se pudo crear el usuario");
         return;
       }
 
-      // Manual insertion into users table
+      // Inserción manual en la tabla de usuarios
       const { error: insertError } = await supabase
         .from('usuarios')
         .insert({ 
           correo: email,
+          contrasena: password,
           rol: "user",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -140,18 +100,43 @@ const Login = () => {
 
       console.log("Registro exitoso:", data);
 
-      // Alert user to check email
+      // Enviar correo de confirmación
+      await sendConfirmationEmail(email, name);
+
       alert(
-        "¡Registro exitoso! Por favor, revisa tu correo electrónico para confirmar tu cuenta."
+        "¡Registro exitoso! Revisa tu correo electrónico para confirmar tu cuenta."
       );
 
-      // Reset to login page
-      setIsRegister(false);
+      // Redirigir o cambiar estado
+      navigate("/dashboard");
     } catch (error) {
       console.error("Error inesperado:", error);
       setError("Error al registrarse. Por favor, inténtelo de nuevo.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const sendConfirmationEmail = async (email, username) => {
+    try {
+      const response = await fetch("http://localhost:3000/send-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          username,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Error al enviar el correo de confirmación");
+      }
+
+      console.log("Correo de confirmación enviado");
+    } catch (error) {
+      console.error("Error al enviar el correo de confirmación:", error.message);
     }
   };
 
@@ -239,12 +224,7 @@ const Login = () => {
               ? "Registrarse"
               : "Iniciar Sesión"}
           </button>
-          
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-              <span className="block sm:inline">{error}</span>
-            </div>
-          )}
+          {error && <p className="text-red-500">{error}</p>}
         </form>
         <p className="text-sm mt-4 text-gray-600 text-center">
           {isRegister ? "¿Ya tienes una cuenta?" : "¿No tienes una cuenta?"}{" "}

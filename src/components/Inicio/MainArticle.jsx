@@ -3,65 +3,69 @@ import { useAuth } from '../AuthContext';
 import supabase from '../client';
 
 const MainArticle = () => {
-  const [contenido, setContenido] = useState('Escribe aquí o sube una imagen...');
-  const [titulo, setTitulo] = useState('');
+  const [texto, setTexto] = useState('Escribe aquí o sube una imagen...');
   const [imagen, setImagen] = useState('');
   const [articulos, setArticulos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const { user } = useAuth();
 
   const fetchArticulos = async () => {
     try {
-      // Cambiar a fetchArticulos si no hay registros
-      const { count } = await supabase
-        .from('inicio')
-        .select('*', { count: 'exact' });
-
-      if (count === 0) {
-        // Si no hay registros, insertar datos iniciales
-        await insertDatosIniciales();
-      }
-
-      // Fetch de los artículos
+      setLoading(true);
+      
+      // Usar la configuración de consulta pública
       const { data, error } = await supabase
         .from('inicio')
         .select('*')
-        .order('fecha_actualizacion', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      console.log('Articulos fetched:', data);
       setArticulos(data || []);
+      setLoading(false);
     } catch (err) {
       console.error('Error al obtener los datos:', err);
-      alert('No se pudieron cargar los artículos');
+      setError(err.message);
+      setLoading(false);
     }
   };
 
-  const insertDatosIniciales = async () => {
+  const handleSave = async () => {
+    // Verificación de rol de admin
+    if (!isAdmin()) {
+      alert('No tienes permisos para guardar');
+      return;
+    }
+
+    if (!texto.trim()) {
+      alert('El contenido es obligatorio');
+      return;
+    }
+
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('inicio')
-        .insert([
-          {
-            titulo: 'Bienvenido',
-            contenido: 'Este es el contenido inicial de tu sitio web',
-            imagen: '/path/to/default/image.jpg',
-            fecha_actualizacion: new Date(),
-            rol: 'admin'
-          },
-          {
-            titulo: 'Información Importante',
-            contenido: 'Aquí puedes agregar información relevante para tus usuarios',
-            imagen: '/path/to/another/default/image.jpg',
-            fecha_actualizacion: new Date(),
-            rol: 'admin'
-          }
-        ]);
+        .insert({
+          texto,
+          imagen: imagen || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
 
       if (error) throw error;
-      console.log('Datos iniciales insertados con éxito');
+
+      // Limpiar campos después de guardar
+      setTexto('Escribe aquí o sube una imagen...');
+      setImagen('');
+
+      // Recargar artículos
+      await fetchArticulos();
+
+      alert('Artículo guardado exitosamente');
     } catch (err) {
-      console.error('Error al insertar datos iniciales:', err);
+      console.error('Error al guardar el artículo:', err);
+      alert('No se pudo guardar el artículo');
     }
   };
 
@@ -69,27 +73,23 @@ const MainArticle = () => {
     fetchArticulos();
   }, []);
 
-  // Detailed logging for admin check
-  console.log('User object:', user);
-  console.log('User role:', user?.user_metadata?.role);
-  const isAdmin = user && user.user_metadata?.role === 'admin';
-  console.log('Is Admin:', isAdmin);
+  // Verificación de rol de admin
+  const isAdmin = () => {
+    return user?.user_metadata?.role === 'admin';
+  };
+
+  if (loading) return <div>Cargando...</div>;
+  if (error) return <div>Error: {error}</div>;
 
   return (
     <div className="container mx-auto p-4">
-      {isAdmin && (
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold mb-4">Contenido Principal</h2>
-          <input
-            type="text"
-            value={titulo}
-            onChange={(e) => setTitulo(e.target.value)}
-            placeholder="Título"
-            className="w-full p-2 mb-4 border rounded"
-          />
+      {/* Formulario de guardado solo visible para admin */}
+      {isAdmin() && (
+        <div className="mb-6 bg-gray-100 p-4 rounded">
+          <h2 className="text-2xl font-bold mb-4">Agregar Contenido</h2>
           <textarea
-            value={contenido}
-            onChange={(e) => setContenido(e.target.value)}
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
             placeholder="Contenido"
             className="w-full p-2 mb-4 border rounded"
             rows={4}
@@ -110,7 +110,39 @@ const MainArticle = () => {
         </div>
       )}
 
-      {/* Rest of the component remains the same */}
+      {/* Sección de artículos visible para todos */}
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {articulos.map((articulo) => (
+          <div 
+            key={articulo.id} 
+            className="border p-4 rounded shadow-md bg-white"
+          >
+            <p className="mb-3">{articulo.texto}</p>
+            {articulo.imagen && (
+              <img 
+                src={articulo.imagen} 
+                alt="Imagen de artículo" 
+                className="w-full h-48 object-cover rounded mb-3"
+              />
+            )}
+            <div className="text-sm text-gray-500">
+              <span>Publicado: {new Date(articulo.created_at).toLocaleDateString()}</span>
+              {articulo.updated_at && articulo.updated_at !== articulo.created_at && (
+                <span className="block text-xs text-gray-400">
+                  Última actualización: {new Date(articulo.updated_at).toLocaleDateString()}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Mensaje cuando no hay artículos */}
+      {articulos.length === 0 && (
+        <div className="text-center text-gray-500 py-8">
+          No hay contenido disponible
+        </div>
+      )}
     </div>
   );
 };

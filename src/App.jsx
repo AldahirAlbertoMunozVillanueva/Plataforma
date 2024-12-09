@@ -3,7 +3,7 @@ import { Header } from './components/Header/Header';
 import Home from './components/Header/Home';
 import { DEBP } from './components/Header/DEBP';
 import { Cartelera } from './components/Header/Cartelera';
-import { Personal } from './components/Personal/Personal';
+import Personal from './components/Personal/Personal';
 import Login from './components/InicioSecion/Login';
 import Dashboard from './components/InicioSecion/Dashboard';
 import AdminPanel from './components/InicioSecion/AdminPanel';
