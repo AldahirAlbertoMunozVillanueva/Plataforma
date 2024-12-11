@@ -1,42 +1,18 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTable } from 'react-table';
 import * as XLSX from 'xlsx';
 import supabase from '../client';
+import { useAuth } from '../AuthContext';
 
 const ExcelTable = () => {
   const [data, setData] = useState([]);
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(false);
   const [fileName, setFileName] = useState('');
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { isAdmin, session } = useAuth(); // Make sure to include session
 
-  // Verificar rol de usuario
+  // Cargar datos al inicio
   useEffect(() => {
-    const checkUserRole = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
-          setIsAdmin(false);
-          return;
-        }
-
-        const { data: userData, error } = await supabase
-          .from('usuarios')
-          .select('rol')
-          .eq('id', user.id)
-          .single();
-
-        if (error) throw error;
-
-        setIsAdmin(userData?.rol === 'admin');
-      } catch (error) {
-        console.error('Error verificando rol:', error);
-        setIsAdmin(false);
-      }
-    };
-
-    // Cargar datos al inicio
     const fetchInitialData = async () => {
       try {
         const { data: personalData, error } = await supabase
@@ -46,17 +22,27 @@ const ExcelTable = () => {
 
         if (error) throw error;
 
-        // Parsear datos JSON si están almacenados como JSON
         const parsedData = personalData.map(item => 
           item.datos_excel ? JSON.parse(item.datos_excel).datos : item
         ).flat();
 
-        // Generar columnas dinámicamente si hay datos
         if (parsedData.length > 0) {
           const headers = Object.keys(parsedData[0]);
           const formattedColumns = headers.map(header => ({
             Header: header,
-            accessor: header.toLowerCase().replace(/\s+/g, '_')
+            accessor: header.toLowerCase().replace(/\s+/g, '_'),
+            Cell: ({ value, row, column }) => {
+              return isAdmin ? (
+                <input
+                  className="w-full border-none bg-transparent"
+                  type="text"
+                  defaultValue={value}
+                  onBlur={(e) => updateData(row.index, column.id, e.target.value)}
+                />
+              ) : (
+                value
+              );
+            }
           }));
           setColumns(formattedColumns);
           setData(parsedData);
@@ -66,11 +52,25 @@ const ExcelTable = () => {
       }
     };
 
-    checkUserRole();
     fetchInitialData();
   }, []);
 
-  // Manejar carga de archivo (solo para admin)
+  // Función para actualizar datos
+  const updateData = (rowIndex, columnId, value) => {
+    setData(old =>
+      old.map((row, index) => {
+        if (index === rowIndex) {
+          return {
+            ...old[rowIndex],
+            [columnId]: value
+          };
+        }
+        return row;
+      })
+    );
+  };
+
+  // Manejar carga de archivo
   const handleFileUpload = (e) => {
     if (!isAdmin) {
       alert('Solo los administradores pueden cargar archivos');
@@ -90,7 +90,19 @@ const ExcelTable = () => {
       const headers = jsonData[0];
       const formattedColumns = headers.map(header => ({
         Header: header,
-        accessor: header.toLowerCase().replace(/\s+/g, '_')
+        accessor: header.toLowerCase().replace(/\s+/g, '_'),
+        Cell: ({ value, row, column }) => {
+          return isAdmin ? (
+            <input
+              className="w-full border-none bg-transparent"
+              type="text"
+              defaultValue={value}
+              onBlur={(e) => updateData(row.index, column.id, e.target.value)}
+            />
+          ) : (
+            value
+          );
+        }
       }));
       
       const formattedData = jsonData.slice(1).map(row => 
@@ -119,6 +131,7 @@ const ExcelTable = () => {
     setLoading(true);
 
     try {
+      // Ensure we're using the authenticated user's ID
       const { error } = await supabase
         .from('personal')
         .insert({
@@ -137,6 +150,16 @@ const ExcelTable = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Exportar a Excel
+  const exportToExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Datos");
+    
+    const fileName = `Datos_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
   };
 
   // Configuración de react-table
@@ -162,17 +185,25 @@ const ExcelTable = () => {
             className="p-2 border rounded flex-grow" 
           />
           {data.length > 0 && (
-            <button 
-              onClick={saveToSupabase}
-              disabled={loading}
-              className={`p-2 rounded ${
-                !loading 
-                  ? 'bg-blue-500 text-white hover:bg-blue-600' 
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-            >
-              {loading ? 'Guardando...' : 'Guardar en Base de Datos'}
-            </button>
+            <>
+              <button 
+                onClick={saveToSupabase}
+                disabled={loading}
+                className={`p-2 rounded ${
+                  !loading 
+                    ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                {loading ? 'Guardando...' : 'Guardar en Base de Datos'}
+              </button>
+              <button 
+                onClick={exportToExcel}
+                className="p-2 rounded bg-green-500 text-white hover:bg-green-600"
+              >
+                Exportar Excel
+              </button>
+            </>
           )}
         </div>
       )}
@@ -181,10 +212,15 @@ const ExcelTable = () => {
         <div className="overflow-x-auto">
           <table {...getTableProps()} className="w-full border-collapse">
             <thead>
-              {headerGroups.map(headerGroup => (
-                <tr {...headerGroup.getHeaderGroupProps()} className="bg-gray-200">
-                  {headerGroup.headers.map(column => (
+              {headerGroups.map((headerGroup) => (
+                <tr 
+                  key={headerGroup.getHeaderGroupProps().key}
+                  {...headerGroup.getHeaderGroupProps()} 
+                  className="bg-gray-200"
+                >
+                  {headerGroup.headers.map((column) => (
                     <th 
+                      key={column.getHeaderProps().key}
                       {...column.getHeaderProps()} 
                       className="border p-2 text-left"
                     >
@@ -195,13 +231,18 @@ const ExcelTable = () => {
               ))}
             </thead>
             <tbody {...getTableBodyProps()}>
-              {rows.map(row => {
+              {rows.map((row) => {
                 prepareRow(row);
                 return (
-                  <tr {...row.getRowProps()} className="hover:bg-gray-100">
-                    {row.cells.map(cell => (
-                      <td 
-                        {...cell.getCellProps()} 
+                  <tr 
+                    key={row.getRowProps().key}
+                    {...row.getRowProps()} 
+                    className="hover:bg-gray-100"
+                  >
+                    {row.cells.map((cell) => (
+                      <td
+                        key={cell.getCellProps().key}
+                        {...cell.getCellProps()}
                         className="border p-2"
                       >
                         {cell.render('Cell')}

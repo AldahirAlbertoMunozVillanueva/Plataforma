@@ -10,11 +10,9 @@ export const DEBP = () => {
   };
 
   return (
-    <div>
-      <div className="flex">
-        <MapContainer onSelectLocation={handleSelectLocation} />
-        <ArticleDEBP selectedLocation={selectedLocation} />
-      </div>
+    <div className="flex flex-col"> {/* Cambia flex a flex-col */}
+      <MapContainer onSelectLocation={handleSelectLocation} />
+      <ArticleDEBP selectedLocation={selectedLocation} />
     </div>
   );
 };

@@ -16,6 +16,14 @@ const Login = () => {
   const signInWithEmail = async () => {
     try {
       setLoading(true);
+      setError("");
+
+      // Validaciones
+      if (!email || !password) {
+        setError("Por favor ingrese correo y contraseña");
+        return;
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -23,13 +31,25 @@ const Login = () => {
 
       if (error) throw error;
 
-      console.log("Inicio de sesión exitoso:", data);
+      // Obtener información adicional del usuario
+      const { data: userData } = await supabase
+        .from('usuarios')
+        .select('rol')
+        .eq('correo', email)
+        .single();
 
-      const { user } = data;
-      const role = user.user_metadata?.role || "user";
+      const role = userData?.rol || "user";
 
-      login(role);
+      // Información de usuario para el contexto
+      const userInfo = {
+        id: data.user.id,
+        email,
+        role
+      };
 
+      login(userInfo);
+
+      // Redirección basada en rol
       if (role === "admin") {
         navigate("/dashboard");
       } else {
@@ -37,7 +57,7 @@ const Login = () => {
       }
     } catch (error) {
       console.error("Error al iniciar sesión:", error.message);
-      setError("Error al iniciar sesión. Verifique sus credenciales.");
+      setError(error.message || "Error al iniciar sesión. Verifique sus credenciales.");
     } finally {
       setLoading(false);
     }
@@ -46,10 +66,24 @@ const Login = () => {
   const signUpWithEmail = async () => {
     try {
       setLoading(true);
-      
-      // Validaciones previas
+      setError("");
+
+      // Validaciones más estrictas
       if (!email || !password || !name) {
         setError("Complete todos los campos");
+        return;
+      }
+
+      // Validar formato de email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        setError("Formato de correo electrónico inválido");
+        return;
+      }
+
+      // Validar contraseña
+      if (password.length < 8) {
+        setError("La contraseña debe tener al menos 8 caracteres");
         return;
       }
 
@@ -65,53 +99,33 @@ const Login = () => {
         },
       });
 
-      if (error) {
-        // Manejar errores específicos
-        if (error.message.includes("rate limit")) {
-          setError("Demasiados intentos. Espere un momento.");
-        } else {
-          setError(error.message || "Error en el registro");
-        }
-        throw error;
-      }
+      if (error) throw error;
 
-      // Verificar si el usuario existe antes de insertar
-      if (!data.user) {
-        setError("No se pudo crear el usuario");
-        return;
-      }
-
-      // Inserción manual en la tabla de usuarios
+      // Inserción en tabla de usuarios
       const { error: insertError } = await supabase
         .from('usuarios')
-        .insert({ 
+        .upsert({ 
           correo: email,
-          contrasena: password,
+          nombre: name,
           rol: "user",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          created_at: new Date().toISOString()
+        }, {
+          onConflict: 'correo'
         });
 
-      if (insertError) {
-        console.error("Error al insertar en tabla de usuarios:", insertError);
-        setError("Error al completar el registro");
-        throw insertError;
-      }
+      if (insertError) throw insertError;
 
-      console.log("Registro exitoso:", data);
-
-      // Enviar correo de confirmación
+      // Envío de correo de confirmación (opcional)
       await sendConfirmationEmail(email, name);
 
-      alert(
-        "¡Registro exitoso! Revisa tu correo electrónico para confirmar tu cuenta."
-      );
+      // Mensaje de éxito
+      alert("Registro exitoso. Por favor revisa tu correo electrónico.");
 
-      // Redirigir o cambiar estado
-      navigate("/dashboard");
+      // Iniciar sesión automáticamente
+      await signInWithEmail();
     } catch (error) {
-      console.error("Error inesperado:", error);
-      setError("Error al registrarse. Por favor, inténtelo de nuevo.");
+      console.error("Error de registro:", error);
+      setError(error.message || "Error en el registro");
     } finally {
       setLoading(false);
     }
@@ -224,8 +238,12 @@ const Login = () => {
               ? "Registrarse"
               : "Iniciar Sesión"}
           </button>
-          {error && <p className="text-red-500">{error}</p>}
+          
+          {error && (
+            <p className="text-red-500 text-sm text-center">{error}</p>
+          )}
         </form>
+        
         <p className="text-sm mt-4 text-gray-600 text-center">
           {isRegister ? "¿Ya tienes una cuenta?" : "¿No tienes una cuenta?"}{" "}
           <button
