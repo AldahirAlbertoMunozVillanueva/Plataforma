@@ -5,16 +5,16 @@ import supabase from '../client';
 const MainArticle = () => {
   const [texto, setTexto] = useState('Escribe aquí o sube una imagen...');
   const [imagen, setImagen] = useState('');
+  const [imagenFile, setImagenFile] = useState(null);
   const [articulos, setArticulos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   const fetchArticulos = async () => {
     try {
       setLoading(true);
       
-      // Usar la configuración de consulta pública
       const { data, error } = await supabase
         .from('inicio')
         .select('*')
@@ -31,9 +31,41 @@ const MainArticle = () => {
     }
   };
 
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImagenFile(file);
+      setImagen(URL.createObjectURL(file));
+    }
+  };
+
+  const uploadImage = async () => {
+    if (!imagenFile) return null;
+
+    try {
+      const fileExt = imagenFile.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `public/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('imagen')
+        .upload(filePath, imagenFile);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage.from('imagen').getPublicUrl(filePath);
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error subiendo imagen:', error);
+      alert('No se pudo subir la imagen');
+      return null;
+    }
+  };
+
   const handleSave = async () => {
-    // Verificación de rol de admin
-    if (!isAdmin()) {
+    if (!isAdmin) {
       alert('No tienes permisos para guardar');
       return;
     }
@@ -44,20 +76,27 @@ const MainArticle = () => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('inicio')
-        .insert({
-          texto,
-          imagen: imagen || null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
+      const imageUrl = imagenFile ? await uploadImage() : imagen;
 
-      if (error) throw error;
+      const articleData = {
+        texto,
+        imagen: imageUrl || null,
+        created_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('inicio')
+        .insert(articleData);
+
+      if (error) {
+        console.error('Detalles del error:', error);
+        throw error;
+      }
 
       // Limpiar campos después de guardar
       setTexto('Escribe aquí o sube una imagen...');
       setImagen('');
+      setImagenFile(null);
 
       // Recargar artículos
       await fetchArticulos();
@@ -69,14 +108,31 @@ const MainArticle = () => {
     }
   };
 
+  const handleDelete = async (id) => {
+    if (!isAdmin) {
+      alert('No tienes permisos para eliminar');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('inicio')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      await fetchArticulos();
+      alert('Artículo eliminado exitosamente');
+    } catch (err) {
+      console.error('Error al eliminar el artículo:', err);
+      alert('No se pudo eliminar el artículo');
+    }
+  };
+
   useEffect(() => {
     fetchArticulos();
   }, []);
-
-  // Verificación de rol de admin
-  const isAdmin = () => {
-    return user?.user_metadata?.role === 'admin';
-  };
 
   if (loading) return <div>Cargando...</div>;
   if (error) return <div>Error: {error}</div>;
@@ -84,7 +140,7 @@ const MainArticle = () => {
   return (
     <div className="container mx-auto p-4">
       {/* Formulario de guardado solo visible para admin */}
-      {isAdmin() && (
+      {isAdmin && (
         <div className="mb-6 bg-gray-100 p-4 rounded">
           <h2 className="text-2xl font-bold mb-4">Agregar Contenido</h2>
           <textarea
@@ -94,19 +150,29 @@ const MainArticle = () => {
             className="w-full p-2 mb-4 border rounded"
             rows={4}
           />
-          <input
-            type="text"
-            value={imagen}
-            onChange={(e) => setImagen(e.target.value)}
-            placeholder="URL de imagen (opcional)"
-            className="w-full p-2 mb-4 border rounded"
-          />
-          <button
-            onClick={handleSave}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-          >
-            Guardar
-          </button>
+          <div className="mb-4">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="w-full p-2 border rounded"
+            />
+            {imagen && (
+              <img 
+                src={imagen} 
+                alt="Vista previa" 
+                className="mt-2 h-40 object-cover rounded"
+              />
+            )}
+          </div>
+          <div className="flex space-x-2">
+            <button
+              onClick={handleSave}
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            >
+              Guardar
+            </button>
+          </div>
         </div>
       )}
 
@@ -115,7 +181,7 @@ const MainArticle = () => {
         {articulos.map((articulo) => (
           <div 
             key={articulo.id} 
-            className="border p-4 rounded shadow-md bg-white"
+            className="border p-4 rounded shadow-md bg-white relative"
           >
             <p className="mb-3">{articulo.texto}</p>
             {articulo.imagen && (
@@ -127,12 +193,17 @@ const MainArticle = () => {
             )}
             <div className="text-sm text-gray-500">
               <span>Publicado: {new Date(articulo.created_at).toLocaleDateString()}</span>
-              {articulo.updated_at && articulo.updated_at !== articulo.created_at && (
-                <span className="block text-xs text-gray-400">
-                  Última actualización: {new Date(articulo.updated_at).toLocaleDateString()}
-                </span>
-              )}
             </div>
+            {isAdmin && (
+              <div className="absolute top-2 right-2">
+                <button 
+                  onClick={() => handleDelete(articulo.id)}
+                  className="bg-red-500 text-white p-1 rounded text-xs"
+                >
+                  Eliminar
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
