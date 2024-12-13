@@ -30,7 +30,7 @@ const ExcelTable = () => {
           const headers = Object.keys(parsedData[0]);
           const formattedColumns = headers.map(header => ({
             Header: header,
-            accessor: header.toLowerCase().replace(/\s+/g, '_'),
+            accessor: String(header).toLowerCase().replace(/\s+/g, '_'),
             Cell: ({ value, row, column }) => {
               return isAdmin ? (
                 <input
@@ -78,44 +78,65 @@ const ExcelTable = () => {
     }
 
     const file = e.target.files[0];
+    if (!file) return;
+
     setFileName(file.name);
     const reader = new FileReader();
     
     reader.onload = (event) => {
-      const workbook = XLSX.read(event.target.result, { type: 'binary' });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-      
-      const headers = jsonData[0];
-      const formattedColumns = headers.map(header => ({
-        Header: header,
-        accessor: header.toLowerCase().replace(/\s+/g, '_'),
-        Cell: ({ value, row, column }) => {
-          return isAdmin ? (
-            <input
-              className="w-full border-none bg-transparent"
-              type="text"
-              defaultValue={value}
-              onBlur={(e) => updateData(row.index, column.id, e.target.value)}
-            />
-          ) : (
-            value
-          );
+      try {
+        const workbook = XLSX.read(event.target.result, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        
+        if (!jsonData || jsonData.length === 0) {
+          alert('El archivo Excel está vacío');
+          return;
         }
-      }));
-      
-      const formattedData = jsonData.slice(1).map(row => 
-        Object.fromEntries(
-          headers.map((header, index) => [
-            header.toLowerCase().replace(/\s+/g, '_'), 
-            row[index]
-          ])
-        )
-      );
 
-      setColumns(formattedColumns);
-      setData(formattedData);
+        // Asegurarse de que los headers sean strings y eliminar espacios en blanco
+        const headers = jsonData[0].map(header => 
+          String(header).trim()
+        );
+
+        const formattedColumns = headers.map(header => ({
+          Header: header,
+          accessor: header.toLowerCase().replace(/\s+/g, '_'),
+          Cell: ({ value, row, column }) => {
+            return isAdmin ? (
+              <input
+                className="w-full border-none bg-transparent"
+                type="text"
+                defaultValue={value}
+                onBlur={(e) => updateData(row.index, column.id, e.target.value)}
+              />
+            ) : (
+              value
+            );
+          }
+        }));
+        
+        const formattedData = jsonData.slice(1).map(row => 
+          Object.fromEntries(
+            headers.map((header, index) => [
+              header.toLowerCase().replace(/\s+/g, '_'), 
+              row[index]
+            ])
+          )
+        );
+
+        setColumns(formattedColumns);
+        setData(formattedData);
+      } catch (error) {
+        console.error('Error al procesar el archivo:', error);
+        alert('No se pudo procesar el archivo Excel. Asegúrese de que es un archivo válido.');
+      }
+    };
+
+    reader.onerror = (error) => {
+      console.error('Error al leer el archivo:', error);
+      alert('Hubo un problema al leer el archivo');
     };
 
     reader.readAsBinaryString(file);

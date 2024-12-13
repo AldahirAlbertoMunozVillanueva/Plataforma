@@ -3,7 +3,7 @@ import { NavBar } from './NavBar';
 
 export const Header = () => {
   return (
-    <header className=" flex place-content-between items-center mb-14 bg-red-500">
+    <header className=" flex place-content-between items-center mb-14 bg-red-950">
       <img src={logo} alt="Logo" />
       
       <NavBar />

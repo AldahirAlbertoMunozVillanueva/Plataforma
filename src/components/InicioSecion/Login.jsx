@@ -9,7 +9,6 @@ const Login = () => {
   const [error, setError] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const navigate = useNavigate();
   const { login } = useAuth();
 
@@ -50,11 +49,7 @@ const Login = () => {
       login(userInfo);
 
       // Redirección basada en rol
-      if (role === "admin") {
-        navigate("/dashboard");
-      } else {
-        navigate("/dashboard");
-      }
+      navigate("/dashboard");
     } catch (error) {
       console.error("Error al iniciar sesión:", error.message);
       setError(error.message || "Error al iniciar sesión. Verifique sus credenciales.");
@@ -69,7 +64,7 @@ const Login = () => {
       setError("");
 
       // Validaciones más estrictas
-      if (!email || !password || !name) {
+      if (!email || !password) {
         setError("Complete todos los campos");
         return;
       }
@@ -93,64 +88,44 @@ const Login = () => {
         password,
         options: {
           data: { 
-            display_name: name, 
             role: "user" 
-          },
-        },
+          }
+        }
       });
 
       if (error) throw error;
 
-      // Inserción en tabla de usuarios
+      // Verificar si el registro fue exitoso
+      if (!data.user) {
+        throw new Error("No se pudo crear el usuario");
+      }
+
+      // Obtener el ID del usuario recién creado
+      const userId = data.user.id;
+
+      // Insertar en la tabla de usuarios con las columnas existentes
       const { error: insertError } = await supabase
         .from('usuarios')
-        .upsert({ 
+        .insert({ 
+          id: userId,
           correo: email,
-          nombre: name,
+          contrasena: password,  // Añadido según el esquema
           rol: "user",
           created_at: new Date().toISOString()
-        }, {
-          onConflict: 'correo'
         });
 
       if (insertError) throw insertError;
 
-      // Envío de correo de confirmación (opcional)
-      await sendConfirmationEmail(email, name);
-
       // Mensaje de éxito
-      alert("Registro exitoso. Por favor revisa tu correo electrónico.");
+      alert("Registro exitoso. Por favor inicia sesión.");
 
-      // Iniciar sesión automáticamente
-      await signInWithEmail();
+      // Cambiar al modo de inicio de sesión
+      setIsRegister(false);
     } catch (error) {
       console.error("Error de registro:", error);
       setError(error.message || "Error en el registro");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const sendConfirmationEmail = async (email, username) => {
-    try {
-      const response = await fetch("http://localhost:3000/send-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          username,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Error al enviar el correo de confirmación");
-      }
-
-      console.log("Correo de confirmación enviado");
-    } catch (error) {
-      console.error("Error al enviar el correo de confirmación:", error.message);
     }
   };
 
@@ -171,26 +146,6 @@ const Login = () => {
           {isRegister ? "Registrarse" : "Iniciar Sesión"}
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {isRegister && (
-            <div>
-              <label
-                htmlFor="name"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Nombre
-              </label>
-              <input
-                id="name"
-                type="text"
-                placeholder="Tu nombre"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring focus:ring-indigo-200"
-                required
-              />
-            </div>
-          )}
-
           <div>
             <label
               htmlFor="email"

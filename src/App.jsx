@@ -14,7 +14,7 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 
 function App() {
   return (
-    <main className="px-4 pt-6">
+    <main className="px-4 pt-6 bg-amber-50">
       <AuthProvider>  {/* Envuelve todo en AuthProvider */}
         <Router>
           <Header /> {/* Aquí ya se incluye el NavBar */}
@@ -36,4 +36,3 @@ function App() {
 }
 
 export default App;
-

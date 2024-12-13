@@ -25,30 +25,30 @@ export const NavBar = () => {
   return (
     <>
       <ul
-        className={`${menuClicked ? 'hidden' : ''} absolute bg-white top-0 right-0 w-[256px] p-[24px] h-full text-[18px] sm:flex sm:items-center sm:w-[438px] sm:place-content-around sm:p-0 sm:h-auto sm:relative sm:text-[16px]`}
+        className={`${menuClicked ? 'hidden' : ''} absolute bg-red-950 top-0 right-0 w-[256px] p-[24px] h-full text-[18px] sm:flex sm:items-center sm:w-[438px] sm:place-content-around sm:p-0 sm:h-auto sm:relative sm:text-[16px] text-white`}
       >
         <li className={`${menuClicked ? 'hidden' : ''} cursor-pointer sm:hidden flex place-content-end`}>
           <img className="w-8 h-8 mb-[87px]" src={closeBtn} onClick={handleClick} alt="Cerrar menú" />
         </li>
         <li className="mb-8 sm:mb-0">
-          <Link className="hover:text-SoftRed" to="/">Inicio</Link>
+          <Link className="hover:text-red-700" to="/">Inicio</Link>
         </li>
         <li className="mb-8 sm:mb-0">
-          <Link className="hover:text-SoftRed" to="/debp">DEBP</Link>
+          <Link className="hover:text-red-700" to="/debp">M.I.R.E.B.</Link>
         </li>
         <li className="mb-8 sm:mb-0">
-          <Link className="hover:text-SoftRed" to="/cartelera">Cartelera</Link>
+          <Link className="hover:text-red-700" to="/cartelera">Cartelera</Link>
         </li>
         <li className="mb-8 sm:mb-0">
-          <Link className="hover:text-SoftRed" to="/personal">Personal Bibliotecario</Link>
+          <Link className="hover:text-red-700" to="/personal">D.R.E.B.</Link>
         </li>
         <li className="mb-8 sm:mb-0">
-          <Link className="hover:text-SoftRed" to="/login">Inicio de sesión y registro</Link>
+          <Link className="hover:text-red-700" to="/login">Inicio de sesión y registro</Link>
         </li>
         {/* Muestra el enlace al Dashboard solo si el usuario ha iniciado sesión */}
         {isLoggedIn && (
           <li className="mb-8 sm:mb-0">
-            <Link className="hover:text-SoftRed" to="/dashboard">Dashboard</Link>
+            <Link className="hover:text-red-700" to="/dashboard">Panel</Link>
           </li>
         )}
       </ul>
@@ -61,5 +61,3 @@ export const NavBar = () => {
     </>
   );
 };
-
-

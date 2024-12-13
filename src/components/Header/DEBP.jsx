@@ -10,7 +10,8 @@ export const DEBP = () => {
   };
 
   return (
-    <div className="flex flex-col"> {/* Cambia flex a flex-col */}
+    <div className="flex flex-col">
+      <h1 className="text-2xl font-bold text-center my-4">Mapa Interactivo de la Red Estatal de Bibliotecas</h1>
       <MapContainer onSelectLocation={handleSelectLocation} />
       <ArticleDEBP selectedLocation={selectedLocation} />
     </div>
