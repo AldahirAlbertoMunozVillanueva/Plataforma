@@ -43,7 +43,7 @@ export const NavBar = () => {
           <Link className="hover:text-red-700" to="/personal">D.R.E.B.</Link>
         </li>
         <li className="mb-8 sm:mb-0">
-          <Link className="hover:text-red-700" to="/login">Inicio de sesión y registro</Link>
+          <Link className="hover:text-red-700" to="/login">Inicio de sesión</Link>
         </li>
         {/* Muestra el enlace al Dashboard solo si el usuario ha iniciado sesión */}
         {isLoggedIn && (
