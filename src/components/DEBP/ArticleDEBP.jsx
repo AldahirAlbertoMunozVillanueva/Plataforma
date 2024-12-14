@@ -10,9 +10,14 @@ const ArticleDEBP = ({ selectedLocation }) => {
 
   // Estados para el formulario de admin
   const [texto, setTexto] = useState('');
-  const [imagen, setImagen] = useState('');
+  const [imagenes, setImagenes] = useState([]);
   const [ubicacion, setUbicacion] = useState('');
-  const [imagenFile, setImagenFile] = useState(null);
+  const [imageFiles, setImageFiles] = useState([]);
+
+  // Nuevo estado para lightbox
+  const [lightboxImages, setLightboxImages] = useState([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   // Nuevo estado para edición
   const [editingArticle, setEditingArticle] = useState(null);
@@ -33,13 +38,24 @@ const ArticleDEBP = ({ selectedLocation }) => {
 
       const { data, error } = await query;
 
-      console.log('Query de búsqueda de artículos:', query);
-      console.log('Datos recuperados:', data);
-      console.log('Error en recuperación:', error);
-
       if (error) throw error;
 
-      setArticulos(data || []);
+      // Procesar imágenes múltiples
+      const processedArticulos = data.map(articulo => {
+        // Si la imagen es un string de URLs separadas por coma, convertirlo a array
+        const imagenes = articulo.imagen ? 
+          (articulo.imagen.includes(',') ? 
+            articulo.imagen.split(',').map(url => url.trim()) : 
+            [articulo.imagen]) : 
+          [];
+        
+        return {
+          ...articulo,
+          imagenes
+        };
+      });
+
+      setArticulos(processedArticulos || []);
       setLoading(false);
     } catch (err) {
       console.error('Error al obtener los datos:', err);
@@ -53,35 +69,40 @@ const ArticleDEBP = ({ selectedLocation }) => {
   }, [selectedLocation, isAdmin]);
 
   const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setImagenFile(file);
-      setImagen(URL.createObjectURL(file));
-    }
+    const files = Array.from(e.target.files);
+    const newImageUrls = files.map(file => URL.createObjectURL(file));
+    
+    setImageFiles(prevFiles => [...prevFiles, ...files]);
+    setImagenes(prevImages => [...prevImages, ...newImageUrls]);
   };
 
-  const uploadImage = async () => {
-    if (!imagenFile) return null;
+  const uploadImages = async () => {
+    if (imageFiles.length === 0) return [];
 
     try {
-      const fileExt = imagenFile.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `public/${fileName}`;
+      const uploadPromises = imageFiles.map(async (file) => {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `public/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('imagen')
-        .upload(filePath, imagenFile);
+        const { error: uploadError } = await supabase.storage
+          .from('imagen')
+          .upload(filePath, file);
 
-      if (uploadError) {
-        throw uploadError;
-      }
+        if (uploadError) {
+          console.error('Upload error for file:', file, uploadError);
+          throw uploadError;
+        }
 
-      const { data } = supabase.storage.from('imagen').getPublicUrl(filePath);
-      return data.publicUrl;
+        const { data } = supabase.storage.from('imagen').getPublicUrl(filePath);
+        return data.publicUrl;
+      });
+
+      return await Promise.all(uploadPromises);
     } catch (error) {
-      console.error('Error subiendo imagen:', error);
-      alert('No se pudo subir la imagen');
-      return null;
+      console.error('Error subiendo imágenes:', error);
+      alert('No se pudieron subir todas las imágenes');
+      return [];
     }
   };
 
@@ -97,15 +118,23 @@ const ArticleDEBP = ({ selectedLocation }) => {
     }
 
     try {
-      const imageUrl = imagenFile ? await uploadImage() : imagen;
+      // Primero subir imágenes
+      const imageUrls = await uploadImages();
+
+      // Combinar imágenes existentes con nuevas (si estamos editando)
+      const combinedImageUrls = editingArticle 
+        ? [...(editingArticle.imagenes || []), ...imageUrls]
+        : imageUrls;
 
       const articleData = {
         texto,
-        imagen: imageUrl || imagen,
+        // Guardar como string separado por comas para compatibilidad
+        imagen: combinedImageUrls.join(','),
         ubicacion: ubicacion.trim() || null
       };
 
-      console.log('Datos a actualizar:', articleData);
+      // Debug logging
+      console.log('Datos a guardar:', articleData);
 
       if (editingArticle) {
         // Actualizar artículo existente
@@ -115,7 +144,7 @@ const ArticleDEBP = ({ selectedLocation }) => {
           .eq('id', editingArticle.id);
 
         if (error) {
-          console.error('Error en la actualización:', error);
+          console.error('Error de actualización detallado:', error);
           throw error;
         }
       } else {
@@ -126,7 +155,7 @@ const ArticleDEBP = ({ selectedLocation }) => {
           .insert(articleData);
 
         if (error) {
-          console.error('Error en la inserción:', error);
+          console.error('Error de inserción detallado:', error);
           throw error;
         }
       }
@@ -136,16 +165,31 @@ const ArticleDEBP = ({ selectedLocation }) => {
 
       // Limpiar campos después de guardar
       setTexto('');
-      setImagen('');
-      setImagenFile(null);
+      setImagenes([]);
+      setImageFiles([]);
       setUbicacion('');
       setEditingArticle(null);
 
       alert(editingArticle ? 'Artículo actualizado exitosamente' : 'Artículo guardado exitosamente');
     } catch (err) {
-      console.error('Error detallado:', err);
-      alert(`No se pudo ${editingArticle ? 'actualizar' : 'guardar'} el artículo: ${err.message}`);
+      console.error('Error detallado completo:', err);
+      alert(`No se pudo ${editingArticle ? 'actualizar' : 'guardar'} el artículo: ${JSON.stringify(err)}`);
     }
+  };
+
+  const openLightbox = (images, startIndex = 0) => {
+    setLightboxImages(images);
+    setCurrentImageIndex(startIndex);
+    setIsLightboxOpen(true);
+  };
+
+  const closeLightbox = () => {
+    setIsLightboxOpen(false);
+  };
+
+  const navigateLightbox = (direction) => {
+    const newIndex = (currentImageIndex + direction + lightboxImages.length) % lightboxImages.length;
+    setCurrentImageIndex(newIndex);
   };
 
   const handleEdit = (articulo) => {
@@ -155,11 +199,10 @@ const ArticleDEBP = ({ selectedLocation }) => {
     }
 
     setEditingArticle(articulo);
-    // Asegúrate de mantener la imagen original
     setTexto(articulo.texto || '');
-    setImagen(articulo.imagen || ''); // Mantén la imagen original
+    setImagenes(articulo.imagenes || []);
     setUbicacion(articulo.ubicacion || '');
-    setImagenFile(null); // Resetea el archivo de imagen
+    setImageFiles([]);
   };
 
   const handleDelete = async (id) => {
@@ -187,9 +230,60 @@ const ArticleDEBP = ({ selectedLocation }) => {
   const handleCancel = () => {
     setEditingArticle(null);
     setTexto('');
-    setImagen('');
-    setImagenFile(null);
+    setImagenes([]);
+    setImageFiles([]);
     setUbicacion('');
+  };
+
+  // Lightbox component
+  const Lightbox = () => {
+    if (!isLightboxOpen) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80">
+        <div className="relative max-w-4xl max-h-[90vh] flex items-center">
+          {/* Botón de cierre */}
+          <button 
+            onClick={closeLightbox}
+            className="absolute top-2 right-2 text-white text-3xl z-60"
+          >
+            &times;
+          </button>
+
+          {/* Botón de navegación izquierda */}
+          {lightboxImages.length > 1 && (
+            <button 
+              onClick={() => navigateLightbox(-1)}
+              className="absolute left-2 text-white text-4xl z-60 bg-black bg-opacity-50 rounded-full p-2"
+            >
+              &#10094;
+            </button>
+          )}
+
+          {/* Imagen actual */}
+          <img 
+            src={lightboxImages[currentImageIndex]} 
+            alt={`Imagen ${currentImageIndex + 1}`}
+            className="max-w-full max-h-[90vh] object-contain"
+          />
+
+          {/* Botón de navegación derecha */}
+          {lightboxImages.length > 1 && (
+            <button 
+              onClick={() => navigateLightbox(1)}
+              className="absolute right-2 text-white text-4xl z-60 bg-black bg-opacity-50 rounded-full p-2"
+            >
+              &#10095;
+            </button>
+          )}
+
+          {/* Contador de imágenes */}
+          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-white bg-black bg-opacity-50 px-4 py-2 rounded">
+            {currentImageIndex + 1} / {lightboxImages.length}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   if (loading) return <div>Cargando...</div>;
@@ -197,6 +291,9 @@ const ArticleDEBP = ({ selectedLocation }) => {
 
   return (
     <div className="container mx-auto p-4">
+      {/* Lightbox */}
+      {isLightboxOpen && <Lightbox />}
+
       {/* Formulario de guardado solo visible para admin */}
       {isAdmin && (
         <div className="mb-6 bg-gray-100 p-4 rounded">
@@ -205,7 +302,7 @@ const ArticleDEBP = ({ selectedLocation }) => {
           </h2>
 
           <textarea
-            value={texto || ''} // Asegurarse de que siempre sea una cadena
+            value={texto || ''}
             onChange={(e) => setTexto(e.target.value)}
             placeholder="Contenido del artículo"
             className="w-full p-2 mb-4 border rounded"
@@ -216,15 +313,21 @@ const ArticleDEBP = ({ selectedLocation }) => {
             <input
               type="file"
               accept="image/*"
+              multiple
               onChange={handleImageUpload}
               className="w-full p-2 border rounded"
             />
-            {imagen && (
-              <img 
-                src={imagen} 
-                alt="Vista previa" 
-                className="mt-2 h-40 object-cover rounded"
-              />
+            {imagenes.length > 0 && (
+              <div className="flex flex-wrap mt-2 space-x-2">
+                {imagenes.map((imagen, index) => (
+                  <img 
+                    key={index}
+                    src={imagen} 
+                    alt={`Vista previa ${index + 1}`} 
+                    className="h-20 w-20 object-cover rounded"
+                  />
+                ))}
+              </div>
             )}
           </div>
 
@@ -234,7 +337,7 @@ const ArticleDEBP = ({ selectedLocation }) => {
             <input
               type="text"
               id="ubicacion"
-              value={ubicacion || ''} // Asegurarse de que siempre sea una cadena
+              value={ubicacion || ''}
               onChange={(e) => setUbicacion(e.target.value)}
               placeholder="Ingrese la ubicación"
               className="w-full p-2 border rounded"
@@ -268,12 +371,18 @@ const ArticleDEBP = ({ selectedLocation }) => {
             className="border p-4 rounded shadow-md bg-white relative"
           >
             <p className="mb-3">{articulo.texto}</p>
-            {articulo.imagen && (
-              <img 
-                src={articulo.imagen} 
-                alt="Imagen de artículo" 
-                className="w-full h-48 object-cover rounded mb-3"
-              />
+            {articulo.imagenes && articulo.imagenes.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {articulo.imagenes.map((imagen, index) => (
+                  <img 
+                    key={index}
+                    src={imagen} 
+                    alt={`Imagen de artículo ${index + 1}`} 
+                    className="h-20 w-20 object-cover rounded cursor-pointer"
+                    onClick={() => openLightbox(articulo.imagenes, index)}
+                  />
+                ))}
+              </div>
             )}
             <div className="text-sm text-gray-500 mb-2">
               {articulo.ubicacion && (

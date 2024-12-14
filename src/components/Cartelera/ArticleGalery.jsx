@@ -3,12 +3,13 @@ import { useAuth } from '../AuthContext';
 import supabase from '../client';
 
 const ArticleGalery = () => {
-  const [texto, setTexto] = useState('Escribe aquí o sube una imagen...');
-  const [imagen, setImagen] = useState('');
-  const [imagenFile, setImagenFile] = useState(null);
+  const [texto, setTexto] = useState('Escribe aquí o sube imágenes...');
+  const [imagenes, setImagenes] = useState([]);
+  const [imagenesFiles, setImagenesFiles] = useState([]);
   const [articulos, setArticulos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedImageInfo, setSelectedImageInfo] = useState(null);
   const { user, isAdmin } = useAuth();
 
   const fetchArticulos = async () => {
@@ -22,7 +23,13 @@ const ArticleGalery = () => {
 
       if (error) throw error;
 
-      setArticulos(data || []);
+      // Parse imagen column to handle multiple images
+      const parsedArticulos = data.map(articulo => ({
+        ...articulo,
+        imagenes: articulo.imagen ? articulo.imagen.split(',') : []
+      }));
+
+      setArticulos(parsedArticulos || []);
       setLoading(false);
     } catch (err) {
       console.error('Error al obtener los datos:', err);
@@ -32,40 +39,44 @@ const ArticleGalery = () => {
   };
 
   const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setImagenFile(file);
-      setImagen(URL.createObjectURL(file));
-    }
+    const files = Array.from(e.target.files);
+    const newImageUrls = files.map(file => URL.createObjectURL(file));
+    
+    setImagenesFiles(prev => [...prev, ...files]);
+    setImagenes(prev => [...prev, ...newImageUrls]);
   };
 
-  const uploadImage = async () => {
-    if (!imagenFile) return null;
+  const uploadImages = async () => {
+    if (imagenesFiles.length === 0) return null;
 
     try {
-      const fileExt = imagenFile.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `public/${fileName}`;
+      const uploadPromises = imagenesFiles.map(async (file) => {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const filePath = `public/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('imagen')
-        .upload(filePath, imagenFile);
+        const { error: uploadError } = await supabase.storage
+          .from('imagen')
+          .upload(filePath, file);
 
-      if (uploadError) {
-        throw uploadError;
-      }
+        if (uploadError) {
+          throw uploadError;
+        }
 
-      const { data } = supabase.storage.from('imagen').getPublicUrl(filePath);
-      return data.publicUrl;
+        const { data } = supabase.storage.from('imagen').getPublicUrl(filePath);
+        return data.publicUrl;
+      });
+
+      const uploadedUrls = await Promise.all(uploadPromises);
+      return uploadedUrls.join(',');
     } catch (error) {
-      console.error('Error subiendo imagen:', error);
-      alert('No se pudo subir la imagen');
+      console.error('Error subiendo imágenes:', error);
+      alert('No se pudieron subir las imágenes');
       return null;
     }
   };
 
   const handleSave = async () => {
-    // Verificar si el usuario es admin
     if (!isAdmin) {
       alert('Solo los administradores pueden guardar contenido');
       return;
@@ -77,11 +88,11 @@ const ArticleGalery = () => {
     }
 
     try {
-      const imageUrl = imagenFile ? await uploadImage() : imagen;
+      const imageUrls = imagenesFiles.length ? await uploadImages() : null;
 
       const articleData = {
         texto,
-        imagen: imageUrl || null,
+        imagen: imageUrls,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -96,9 +107,9 @@ const ArticleGalery = () => {
       }
 
       // Limpiar campos después de guardar
-      setTexto('Escribe aquí o sube una imagen...');
-      setImagen('');
-      setImagenFile(null);
+      setTexto('Escribe aquí o sube imágenes...');
+      setImagenes([]);
+      setImagenesFiles([]);
 
       // Recargar artículos
       await fetchArticulos();
@@ -111,7 +122,6 @@ const ArticleGalery = () => {
   };
 
   const handleDelete = async (id) => {
-    // Verificar si el usuario es admin
     if (!isAdmin) {
       alert('Solo los administradores pueden eliminar contenido');
       return;
@@ -131,6 +141,32 @@ const ArticleGalery = () => {
       console.error('Error al eliminar el artículo:', err);
       alert('No se pudo eliminar el artículo');
     }
+  };
+
+  const openImageModal = (articulo, index) => {
+    setSelectedImageInfo({
+      images: articulo.imagenes,
+      currentIndex: index
+    });
+  };
+
+  const closeImageModal = () => {
+    setSelectedImageInfo(null);
+  };
+
+  const navigateImage = (direction) => {
+    if (!selectedImageInfo) return;
+
+    const { images, currentIndex } = selectedImageInfo;
+    const newIndex = 
+      direction === 'next' 
+        ? (currentIndex + 1) % images.length 
+        : (currentIndex - 1 + images.length) % images.length;
+    
+    setSelectedImageInfo(prev => ({
+      ...prev,
+      currentIndex: newIndex
+    }));
   };
 
   useEffect(() => {
@@ -157,15 +193,28 @@ const ArticleGalery = () => {
             <input
               type="file"
               accept="image/*"
+              multiple
               onChange={handleImageUpload}
               className="w-full p-2 border rounded"
             />
-            {imagen && (
-              <img 
-                src={imagen} 
-                alt="Vista previa" 
-                className="mt-2 h-40 object-cover rounded"
-              />
+            {imagenes.length > 0 && (
+              <div className="flex space-x-2 mt-2 overflow-x-auto">
+                {imagenes.map((imagen, index) => (
+                  <img 
+                    key={index}
+                    src={imagen} 
+                    alt={`Vista previa ${index + 1}`} 
+                    className="h-20 w-20 object-cover rounded cursor-pointer"
+                    onClick={() => {
+                      // Use local images for newly uploaded images
+                      setSelectedImageInfo({
+                        images: imagenes,
+                        currentIndex: index
+                      });
+                    }}
+                  />
+                ))}
+              </div>
             )}
           </div>
           <div className="flex space-x-2">
@@ -187,12 +236,18 @@ const ArticleGalery = () => {
             className="border p-4 rounded shadow-md bg-white relative"
           >
             <p className="mb-3">{articulo.texto}</p>
-            {articulo.imagen && (
-              <img 
-                src={articulo.imagen} 
-                alt="Imagen de artículo" 
-                className="w-full h-48 object-cover rounded mb-3"
-              />
+            {articulo.imagenes.length > 0 && (
+              <div className="flex space-x-2 overflow-x-auto">
+                {articulo.imagenes.map((imagen, index) => (
+                  <img 
+                    key={index}
+                    src={imagen} 
+                    alt={`Imagen ${index + 1}`} 
+                    className="w-24 h-24 object-cover rounded cursor-pointer"
+                    onClick={() => openImageModal(articulo, index)}
+                  />
+                ))}
+              </div>
             )}
             <div className="text-sm text-gray-500">
               <span>Publicado: {new Date(articulo.created_at).toLocaleDateString()}</span>
@@ -215,6 +270,43 @@ const ArticleGalery = () => {
       {articulos.length === 0 && (
         <div className="text-center text-gray-500 py-8">
           No hay contenido disponible
+        </div>
+      )}
+
+      {/* Modal para imagen ampliada */}
+      {selectedImageInfo && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50"
+          onClick={closeImageModal}
+        >
+          <div 
+            className="relative max-w-full max-h-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img 
+              src={selectedImageInfo.images[selectedImageInfo.currentIndex]} 
+              alt="Imagen ampliada" 
+              className="max-w-full max-h-[80vh] object-contain"
+            />
+            <button
+              onClick={() => navigateImage('prev')}
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/50 p-2 rounded-full"
+            >
+              &lt;
+            </button>
+            <button
+              onClick={() => navigateImage('next')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/50 p-2 rounded-full"
+            >
+              &gt;
+            </button>
+            <button
+              onClick={closeImageModal}
+              className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full"
+            >
+              X
+            </button>
+          </div>
         </div>
       )}
     </div>

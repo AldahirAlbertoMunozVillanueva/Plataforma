@@ -4,8 +4,11 @@ import supabase from '../client';
 
 const MainArticle = () => {
   const [texto, setTexto] = useState('Escribe aquí o sube una imagen...');
-  const [imagen, setImagen] = useState('');
-  const [imagenFile, setImagenFile] = useState(null);
+  const [imagenes, setImagenes] = useState([]);
+  const [imagenesFiles, setImagenesFiles] = useState([]);
+  const [enlargedImage, setEnlargedImage] = useState(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [currentArticleImages, setCurrentArticleImages] = useState([]);
   const [articulos, setArticulos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -32,36 +35,38 @@ const MainArticle = () => {
   };
 
   const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setImagenFile(file);
-      setImagen(URL.createObjectURL(file));
-    }
+    const files = Array.from(e.target.files);
+    const imageUrls = files.map(file => URL.createObjectURL(file));
+    
+    setImagenesFiles(files);
+    setImagenes(imageUrls);
   };
 
-  const uploadImage = async () => {
-    if (!imagenFile) return null;
+  const uploadImages = async () => {
+    const uploadedImageUrls = [];
 
-    try {
-      const fileExt = imagenFile.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `public/${fileName}`;
+    for (const imagenFile of imagenesFiles) {
+      try {
+        const fileExt = imagenFile.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const filePath = `public/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('imagen')
-        .upload(filePath, imagenFile);
+        const { error: uploadError } = await supabase.storage
+          .from('imagen')
+          .upload(filePath, imagenFile);
 
-      if (uploadError) {
-        throw uploadError;
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        const { data } = supabase.storage.from('imagen').getPublicUrl(filePath);
+        uploadedImageUrls.push(data.publicUrl);
+      } catch (error) {
+        console.error('Error subiendo imagen:', error);
       }
-
-      const { data } = supabase.storage.from('imagen').getPublicUrl(filePath);
-      return data.publicUrl;
-    } catch (error) {
-      console.error('Error subiendo imagen:', error);
-      alert('No se pudo subir la imagen');
-      return null;
     }
+
+    return uploadedImageUrls.length > 0 ? uploadedImageUrls : null;
   };
 
   const handleSave = async () => {
@@ -76,11 +81,11 @@ const MainArticle = () => {
     }
 
     try {
-      const imageUrl = imagenFile ? await uploadImage() : imagen;
+      const imageUrls = imagenesFiles.length ? await uploadImages() : [];
 
       const articleData = {
         texto,
-        imagen: imageUrl || null,
+        imagen: imageUrls && imageUrls.length ? imageUrls.join(',') : null,
         created_at: new Date().toISOString()
       };
 
@@ -95,8 +100,8 @@ const MainArticle = () => {
 
       // Limpiar campos después de guardar
       setTexto('Escribe aquí o sube una imagen...');
-      setImagen('');
-      setImagenFile(null);
+      setImagenes([]);
+      setImagenesFiles([]);
 
       // Recargar artículos
       await fetchArticulos();
@@ -130,6 +135,29 @@ const MainArticle = () => {
     }
   };
 
+  // Función para manejar el clic en la imagen
+  const handleImageClick = (images) => {
+    setCurrentArticleImages(images.split(','));
+    setCurrentImageIndex(0);
+    setEnlargedImage(images.split(',')[0]);
+  };
+
+  // Función para avanzar imagen
+  const nextImage = (e) => {
+    e.stopPropagation();
+    const nextIndex = (currentImageIndex + 1) % currentArticleImages.length;
+    setCurrentImageIndex(nextIndex);
+    setEnlargedImage(currentArticleImages[nextIndex]);
+  };
+
+  // Función para retroceder imagen
+  const prevImage = (e) => {
+    e.stopPropagation();
+    const prevIndex = (currentImageIndex - 1 + currentArticleImages.length) % currentArticleImages.length;
+    setCurrentImageIndex(prevIndex);
+    setEnlargedImage(currentArticleImages[prevIndex]);
+  };
+
   useEffect(() => {
     fetchArticulos();
   }, []);
@@ -154,15 +182,21 @@ const MainArticle = () => {
             <input
               type="file"
               accept="image/*"
+              multiple
               onChange={handleImageUpload}
               className="w-full p-2 border rounded"
             />
-            {imagen && (
-              <img 
-                src={imagen} 
-                alt="Vista previa" 
-                className="mt-2 h-40 object-cover rounded"
-              />
+            {imagenes.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                {imagenes.map((imagen, index) => (
+                  <img 
+                    key={index}
+                    src={imagen} 
+                    alt={`Vista previa ${index + 1}`} 
+                    className="h-24 w-full object-cover rounded"
+                  />
+                ))}
+              </div>
             )}
           </div>
           <div className="flex space-x-2">
@@ -184,13 +218,15 @@ const MainArticle = () => {
             className="border p-4 rounded shadow-md bg-white relative"
           >
             <p className="mb-3">{articulo.texto}</p>
-            {articulo.imagen && (
+            {articulo.imagen && articulo.imagen.split(',').map((imagen, index) => (
               <img 
-                src={articulo.imagen} 
-                alt="Imagen de artículo" 
-                className="w-full h-48 object-cover rounded mb-3"
+                key={index}
+                src={imagen} 
+                alt={`Imagen de artículo ${index + 1}`} 
+                onClick={() => handleImageClick(articulo.imagen)}
+                className="w-full h-48 object-cover rounded mb-3 cursor-pointer"
               />
-            )}
+            ))}
             <div className="text-sm text-gray-500">
               <span>Publicado: {new Date(articulo.created_at).toLocaleDateString()}</span>
             </div>
@@ -212,6 +248,52 @@ const MainArticle = () => {
       {articulos.length === 0 && (
         <div className="text-center text-gray-500 py-8">
           No hay contenido disponible
+        </div>
+      )}
+
+      {/* Modal para imagen ampliada */}
+      {enlargedImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50"
+          onClick={() => {
+            setEnlargedImage(null);
+            setCurrentArticleImages([]);
+          }}
+        >
+          <div className="relative max-w-4xl max-h-screen">
+            {/* Botón de retroceder */}
+            {currentArticleImages.length > 1 && (
+              <button 
+                onClick={prevImage}
+                className="absolute left-[-50px] top-1/2 transform -translate-y-1/2 bg-white/50 rounded-full p-2 hover:bg-white/75"
+              >
+                ◀
+              </button>
+            )}
+
+            <img 
+              src={enlargedImage} 
+              alt="Imagen ampliada" 
+              className="max-w-full max-h-screen object-contain"
+            />
+
+            {/* Botón de avanzar */}
+            {currentArticleImages.length > 1 && (
+              <button 
+                onClick={nextImage}
+                className="absolute right-[-50px] top-1/2 transform -translate-y-1/2 bg-white/50 rounded-full p-2 hover:bg-white/75"
+              >
+                ▶
+              </button>
+            )}
+
+            {/* Contador de imágenes */}
+            {currentArticleImages.length > 1 && (
+              <div className="absolute bottom-[-30px] left-1/2 transform -translate-x-1/2 bg-white/50 px-2 py-1 rounded">
+                {currentImageIndex + 1} / {currentArticleImages.length}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
