@@ -4,7 +4,6 @@ import { useAuth } from '../AuthContext';
 import supabase from "../client";
 
 const Login = () => {
-  const [isRegister, setIsRegister] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [email, setEmail] = useState("");
@@ -58,92 +57,16 @@ const Login = () => {
     }
   };
 
-  const signUpWithEmail = async () => {
-    try {
-      setLoading(true);
-      setError("");
-
-      // Validaciones más estrictas
-      if (!email || !password) {
-        setError("Complete todos los campos");
-        return;
-      }
-
-      // Validar formato de email
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        setError("Formato de correo electrónico inválido");
-        return;
-      }
-
-      // Validar contraseña
-      if (password.length < 8) {
-        setError("La contraseña debe tener al menos 8 caracteres");
-        return;
-      }
-
-      // Registro de usuario en Supabase Auth
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { 
-            role: "user" 
-          }
-        }
-      });
-
-      if (error) throw error;
-
-      // Verificar si el registro fue exitoso
-      if (!data.user) {
-        throw new Error("No se pudo crear el usuario");
-      }
-
-      // Obtener el ID del usuario recién creado
-      const userId = data.user.id;
-
-      // Insertar en la tabla de usuarios con las columnas existentes
-      const { error: insertError } = await supabase
-        .from('usuarios')
-        .insert({ 
-          id: userId,
-          correo: email,
-          contrasena: password,  // Añadido según el esquema
-          rol: "user",
-          created_at: new Date().toISOString()
-        });
-
-      if (insertError) throw insertError;
-
-      // Mensaje de éxito
-      alert("Registro exitoso. Por favor inicia sesión.");
-
-      // Cambiar al modo de inicio de sesión
-      setIsRegister(false);
-    } catch (error) {
-      console.error("Error de registro:", error);
-      setError(error.message || "Error en el registro");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSubmit = (e) => {
     e.preventDefault();
-    
-    if (isRegister) {
-      signUpWithEmail();
-    } else {
-      signInWithEmail();
-    }
+    signInWithEmail();
   };
 
   return (
     <div className="flex items-center justify-center h-screen bg-gray-100">
       <div className="w-full max-w-md p-8 bg-white rounded shadow-md">
         <h2 className="mb-6 text-2xl font-bold text-center text-gray-800">
-          {isRegister ? "Registrarse" : "Iniciar Sesión"}
+          Iniciar Sesión
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -187,28 +110,13 @@ const Login = () => {
             className="w-full px-4 py-2 text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring focus:ring-indigo-200"
             disabled={loading}
           >
-            {loading
-              ? "Cargando..."
-              : isRegister
-              ? "Registrarse"
-              : "Iniciar Sesión"}
+            {loading ? "Cargando..." : "Iniciar Sesión"}
           </button>
           
           {error && (
             <p className="text-red-500 text-sm text-center">{error}</p>
           )}
         </form>
-        
-        <p className="text-sm mt-4 text-gray-600 text-center">
-          {isRegister ? "¿Ya tienes una cuenta?" : "¿No tienes una cuenta?"}{" "}
-          <button
-            type="button"
-            onClick={() => setIsRegister(!isRegister)}
-            className="text-blue-500 hover:underline"
-          >
-            {isRegister ? "Inicia sesión" : "Regístrate"}
-          </button>
-        </p>
       </div>
     </div>
   );

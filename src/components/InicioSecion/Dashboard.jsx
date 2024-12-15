@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminPanel from './AdminPanel';
-import UserUpdates from './UserUpdates';
+import MainArticle from '../Inicio/MainArticle';
 import supabase from '../client';
 
 const Dashboard = () => {
@@ -53,7 +53,7 @@ const Dashboard = () => {
   return (
     <div>
       {userRole === 'admin' && <AdminPanel />}
-      {userRole === 'user' && <UserUpdates />}
+      {userRole === 'user' && <MainArticle />}
       {!userRole && <p>No tienes acceso al panel. Contacta al administrador.</p>}
     </div>
   );
