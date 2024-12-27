@@ -12,23 +12,47 @@ export const NavBar = () => {
     setMenuClicked(prevState => !prevState);
   };
 
-  // Verifica si hay un usuario autenticado
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      setIsLoggedIn(!!user); // Actualiza el estado según si hay un usuario autenticado
+      setIsLoggedIn(!!user);
     };
 
     checkAuth();
   }, []);
 
   return (
-    <>
+    <nav className="relative z-50 flex items-center"> {/* Añadido flex y items-center */}
       <ul
-        className={`${menuClicked ? 'hidden' : ''} absolute bg-red-950 top-0 right-0 w-[256px] p-[24px] h-full text-[18px] sm:flex sm:items-center sm:w-[438px] sm:place-content-around sm:p-0 sm:h-auto sm:relative sm:text-[16px] text-white`}
+        className={`
+          ${menuClicked ? 'hidden' : 'fixed'} 
+          bg-red-950 
+          top-0 
+          right-0 
+          w-[256px] 
+          p-[24px] 
+          h-full 
+          text-[18px] 
+          z-50
+          sm:flex 
+          sm:items-center 
+          sm:w-[438px] 
+          sm:place-content-around 
+          sm:p-0 
+          sm:h-auto 
+          sm:relative 
+          sm:text-[16px] 
+          text-white
+          shadow-lg
+        `}
       >
         <li className={`${menuClicked ? 'hidden' : ''} cursor-pointer sm:hidden flex place-content-end`}>
-          <img className="w-8 h-8 mb-[87px]" src={closeBtn} onClick={handleClick} alt="Cerrar menú" />
+          <img 
+            className="w-8 h-8 mb-[87px]" 
+            src={closeBtn} 
+            onClick={handleClick} 
+            alt="Cerrar menú" 
+          />
         </li>
         <li className="mb-8 sm:mb-0">
           <Link className="hover:text-red-700" to="/">Inicio</Link>
@@ -45,7 +69,6 @@ export const NavBar = () => {
         <li className="mb-8 sm:mb-0">
           <Link className="hover:text-red-700" to="/login">Inicio de sesión</Link>
         </li>
-        {/* Muestra el enlace al Dashboard solo si el usuario ha iniciado sesión */}
         {isLoggedIn && (
           <li className="mb-8 sm:mb-0">
             <Link className="hover:text-red-700" to="/dashboard">Panel</Link>
@@ -53,11 +76,11 @@ export const NavBar = () => {
         )}
       </ul>
       <img
-        className={`${menuClicked ? '' : 'hidden'} w-10 h-4 cursor-pointer sm:hidden`}
+        className={`${menuClicked ? '' : 'hidden'} w-10 h-4 cursor-pointer sm:hidden my-auto`} // Cambiado fixed por my-auto
         src={burgerMenu}
         onClick={handleClick}
         alt="Menú hamburguesa"
       />
-    </>
+    </nav>
   );
 };
