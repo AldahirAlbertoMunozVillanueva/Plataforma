@@ -37,57 +37,58 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (loading) {
-        setLoading(false);
-        console.warn('Tiempo de carga excedido');
-      }
-    }, 5000);
+    let mounted = true; // Para evitar actualizaciones en componentes desmontados
 
     const checkUser = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-
-        if (session?.user) {
-          const role = await fetchUserRole(session.user);
-
-          const userInfo = {
-            id: session.user.id,
-            email: session.user.email,
-            role: role
-          };
-
-          setUser(userInfo);
+        
+        if (mounted) {
+          if (session?.user) {
+            const role = await fetchUserRole(session.user);
+            const userInfo = {
+              id: session.user.id,
+              email: session.user.email,
+              role: role
+            };
+            setUser(userInfo);
+          } else {
+            setUser(null);
+          }
+          setLoading(false);
         }
       } catch (error) {
         console.error("Error al cargar usuario:", error);
-      } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
+    // Ejecutar checkUser inmediatamente
     checkUser();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+    // Suscribirse a cambios de autenticación
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (mounted) {
         if (event === 'SIGNED_IN' && session?.user) {
           const role = await fetchUserRole(session.user);
-
           const userInfo = {
             id: session.user.id,
             email: session.user.email,
             role: role
           };
-
           setUser(userInfo);
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
         }
+        setLoading(false);
       }
-    );
+    });
 
+    // Cleanup function
     return () => {
-      clearTimeout(timer);
+      mounted = false;
       authListener.subscription.unsubscribe();
     };
   }, []);
@@ -97,8 +98,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+    } catch (error) {
+      console.error("Error durante el logout:", error);
+    }
   };
 
   const isAdmin = user?.role === 'admin';
@@ -111,14 +116,16 @@ export const AuthProvider = ({ children }) => {
     );
   }
 
+  const value = {
+    user,
+    login,
+    logout,
+    isAdmin,
+    loading
+  };
+
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      login, 
-      logout, 
-      isAdmin,
-      loading 
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
